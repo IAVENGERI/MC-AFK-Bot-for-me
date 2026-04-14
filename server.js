@@ -277,3 +277,11 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`Web interface running on port ${PORT}`);
   createAndRunBot();
 });
+
+setInterval(() => {
+  http.get(`http://localhost:${PORT}/`, (res) => {
+    console.log('[Keep-alive] Self-ping sent, status:', res.statusCode);
+  }).on('error', (err) => {
+    console.log('[Keep-alive] Self-ping failed:', err.message);
+  });
+}, 14 * 60 * 1000);
