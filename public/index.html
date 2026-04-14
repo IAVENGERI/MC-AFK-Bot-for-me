@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AFK Bot Dashboard</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d0f14;
+      --surface: #13161e;
+      --card: #1a1e2a;
+      --border: #252a38;
+      --accent: #4ade80;
+      --accent-dim: rgba(74,222,128,0.12);
+      --red: #f87171;
+      --red-dim: rgba(248,113,113,0.12);
+      --yellow: #fbbf24;
+      --text: #e2e8f0;
+      --muted: #64748b;
+      --glow: 0 0 20px rgba(74,222,128,0.15);
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 16px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+
+    header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      color: #fff;
+    }
+
+    header h1 span {
+      color: var(--accent);
+    }
+
+    header p {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-top: 6px;
+    }
+
+    .dashboard {
+      width: 100%;
+      max-width: 780px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px 28px;
+    }
+
+    .card-title {
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--muted);
+      margin-bottom: 18px;
+    }
+
+    /* STATUS CARD */
+    .status-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .status-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--muted);
+      flex-shrink: 0;
+      transition: background 0.3s, box-shadow 0.3s;
+    }
+
+    .status-dot.online {
+      background: var(--accent);
+      box-shadow: 0 0 10px var(--accent), 0 0 20px rgba(74,222,128,0.4);
+      animation: pulse 2s infinite;
+    }
+
+    .status-dot.offline {
+      background: var(--red);
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .status-label {
+      font-size: 1.4rem;
+      font-weight: 600;
+    }
+
+    .status-label.online { color: var(--accent); }
+    .status-label.offline { color: var(--red); }
+
+    .status-sub {
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    /* GRID STATS */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 12px;
+    }
+
+    .stat-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 18px;
+    }
+
+    .stat-label {
+      font-size: 0.72rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+
+    .stat-value {
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: #fff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .stat-value.accent { color: var(--accent); }
+    .stat-value.yellow { color: var(--yellow); }
+
+    /* POSITION */
+    .position-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    .pos-axis {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    .pos-axis .axis-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      margin-bottom: 8px;
+    }
+
+    .pos-axis .axis-label.x { color: #f87171; }
+    .pos-axis .axis-label.y { color: #60a5fa; }
+    .pos-axis .axis-label.z { color: var(--accent); }
+
+    .pos-axis .axis-value {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    /* BUTTONS */
+    .controls {
+      display: flex;
+      gap: 12px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 14px 0;
+      border: none;
+      border-radius: 12px;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      letter-spacing: 0.3px;
+    }
+
+    .btn:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    .btn-start {
+      background: var(--accent);
+      color: #0d0f14;
+    }
+
+    .btn-start:not(:disabled):hover {
+      background: #86efac;
+      transform: translateY(-1px);
+      box-shadow: var(--glow);
+    }
+
+    .btn-stop {
+      background: var(--red-dim);
+      color: var(--red);
+      border: 1px solid rgba(248,113,113,0.25);
+    }
+
+    .btn-stop:not(:disabled):hover {
+      background: rgba(248,113,113,0.2);
+      transform: translateY(-1px);
+    }
+
+    /* ACTION LOG */
+    .action-text {
+      font-size: 0.9rem;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .action-text::before {
+      content: '';
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      flex-shrink: 0;
+    }
+
+    .server-info {
+      font-size: 0.82rem;
+      color: var(--muted);
+      text-align: center;
+      margin-top: 8px;
+    }
+
+    footer {
+      margin-top: 36px;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>AFK Bot <span>Dashboard</span></h1>
+  <p>Minecraft Human-Like AFK Bot Controller</p>
+</header>
+
+<div class="dashboard">
+
+  <!-- STATUS -->
+  <div class="card">
+    <div class="card-title">Connection Status</div>
+    <div class="status-row">
+      <div class="status-dot offline" id="statusDot"></div>
+      <div>
+        <div class="status-label offline" id="statusLabel">Offline</div>
+        <div class="status-sub" id="statusSub">Not connected to server</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <div class="card">
+    <div class="card-title">Bot Info</div>
+    <div class="stats-grid">
+      <div class="stat-box">
+        <div class="stat-label">Username</div>
+        <div class="stat-value" id="statUsername">—</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Server</div>
+        <div class="stat-value" id="statServer">—</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Health</div>
+        <div class="stat-value accent" id="statHealth">—</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Food</div>
+        <div class="stat-value yellow" id="statFood">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- POSITION -->
+  <div class="card">
+    <div class="card-title">Position</div>
+    <div class="position-grid">
+      <div class="pos-axis">
+        <div class="axis-label x">X</div>
+        <div class="axis-value" id="posX">—</div>
+      </div>
+      <div class="pos-axis">
+        <div class="axis-label y">Y</div>
+        <div class="axis-value" id="posY">—</div>
+      </div>
+      <div class="pos-axis">
+        <div class="axis-label z">Z</div>
+        <div class="axis-value" id="posZ">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CURRENT ACTION -->
+  <div class="card">
+    <div class="card-title">Current Action</div>
+    <div class="action-text" id="actionText">Idle</div>
+  </div>
+
+  <!-- CONTROLS -->
+  <div class="card">
+    <div class="card-title">Controls</div>
+    <div class="controls">
+      <button class="btn btn-start" id="btnStart" disabled onclick="startBot()">Start Bot</button>
+      <button class="btn btn-stop" id="btnStop" disabled onclick="stopBot()">Stop & Disable Auto-Login</button>
+    </div>
+  </div>
+
+</div>
+
+<footer>Connected via WebSocket &bull; Updates in real-time</footer>
+
+<script>
+  const socket = io();
+  let isOnline = false;
+
+  socket.on('state', (state) => {
+    isOnline = state.online;
+
+    const dot = document.getElementById('statusDot');
+    const label = document.getElementById('statusLabel');
+    const sub = document.getElementById('statusSub');
+
+    if (state.online) {
+      dot.className = 'status-dot online';
+      label.className = 'status-label online';
+      label.textContent = 'Online';
+      const since = state.sessionStart ? formatUptime(state.sessionStart) : '';
+      sub.textContent = since ? `Connected · ${since}` : 'Connected to server';
+    } else {
+      dot.className = 'status-dot offline';
+      label.className = 'status-label offline';
+      label.textContent = 'Offline';
+      sub.textContent = 'Not connected to server';
+    }
+
+    document.getElementById('statUsername').textContent = state.username || '—';
+    document.getElementById('statServer').textContent = state.server || '—';
+    document.getElementById('statHealth').textContent = state.health !== null && state.health !== undefined ? `${state.health} / 20` : '—';
+    document.getElementById('statFood').textContent = state.food !== null && state.food !== undefined ? `${state.food} / 20` : '—';
+
+    if (state.position) {
+      document.getElementById('posX').textContent = state.position.x;
+      document.getElementById('posY').textContent = state.position.y;
+      document.getElementById('posZ').textContent = state.position.z;
+    } else {
+      document.getElementById('posX').textContent = '—';
+      document.getElementById('posY').textContent = '—';
+      document.getElementById('posZ').textContent = '—';
+    }
+
+    document.getElementById('actionText').textContent = state.lastAction || 'Idle';
+
+    document.getElementById('btnStart').disabled = state.online;
+    document.getElementById('btnStop').disabled = !state.online;
+  });
+
+  function startBot() {
+    socket.emit('start');
+  }
+
+  function stopBot() {
+    socket.emit('stop');
+  }
+
+  function formatUptime(startTs) {
+    const secs = Math.floor((Date.now() - startTs) / 1000);
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    const s = secs % 60;
+    if (h > 0) return `${h}h ${m}m`;
+    if (m > 0) return `${m}m ${s}s`;
+    return `${s}s`;
+  }
+
+  setInterval(() => {
+    socket.emit('ping');
+  }, 1000);
+</script>
+</body>
+  </html>
