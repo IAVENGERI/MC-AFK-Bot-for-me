@@ -13,6 +13,10 @@ const io = new Server(server);
 
 app.use(express.static(path.join(__dirname, 'public')));
 
+app.get('/ping', (req, res) => {
+  res.status(200).send('Bot is alive - ' + new Date().toLocaleString());
+});
+
 const PORT = process.env.PORT || 5000;
 
 const RECONNECT_DELAY = 10000;
@@ -277,3 +281,26 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`Web interface running on port ${PORT}`);
   createAndRunBot();
 });
+
+const https = require('https');
+
+const RENDER_URL = 'https://mc-afk-bot-for-me.onrender.com';  // ← BURAYI KENDİ RENDER LİNKİNLE DEĞİŞTİR!
+
+function selfPing() {
+  https.get(RENDER_URL + '/ping', (res) => {
+    if (res.statusCode === 200) {
+      console.log(`[${new Date().toLocaleTimeString()}] Self-ping başarılı → Render canlı tutuluyor`);
+    } else {
+      console.log(`[${new Date().toLocaleTimeString()}] Self-ping: Status ${res.statusCode}`);
+    }
+  }).on('error', (err) => {
+    console.log(`[${new Date().toLocaleTimeString()}] Self-ping hatası:`, err.message);
+  });
+}
+
+// Her 10 dakikada bir self ping at (600000 ms = 10 dakika)
+setInterval(selfPing, 600000);
+
+setTimeout(selfPing, 30000);   // 30 saniye sonra ilk ping
+
+console.log('Self-ping sistemi aktif → Her 10 dakikada bir Render canlı tutulacak');
