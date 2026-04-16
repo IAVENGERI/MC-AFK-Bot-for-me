@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AFK Bot Dashboard</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0c10;
+      --surface: #111318;
+      --surface2: #181c24;
+      --border: #1e232e;
+      --accent: #22c55e;
+      --accent-dim: rgba(34,197,94,0.12);
+      --red: #ef4444;
+      --red-dim: rgba(239,68,68,0.12);
+      --yellow: #f59e0b;
+      --yellow-dim: rgba(245,158,11,0.12);
+      --blue: #3b82f6;
+      --blue-dim: rgba(59,130,246,0.12);
+      --text: #e2e8f0;
+      --text-muted: #64748b;
+      --text-dim: #94a3b8;
+      --glow-green: 0 0 20px rgba(34,197,94,0.25);
+      --glow-red: 0 0 20px rgba(239,68,68,0.25);
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 32px 16px 48px;
+      background-image:
+        radial-gradient(ellipse 80% 50% at 50% -10%, rgba(34,197,94,0.07) 0%, transparent 70%),
+        radial-gradient(ellipse 60% 40% at 80% 100%, rgba(59,130,246,0.04) 0%, transparent 60%);
+    }
+
+    header {
+      width: 100%;
+      max-width: 860px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 36px;
+    }
+
+    .logo {
+      width: 44px;
+      height: 44px;
+      background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0;
+      box-shadow: var(--glow-green);
+    }
+
+    header h1 {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.4px;
+    }
+
+    header span {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 2px;
+      display: block;
+    }
+
+    .grid {
+      width: 100%;
+      max-width: 860px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 600px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px 24px;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.3s;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 16px;
+      opacity: 0;
+      transition: opacity 0.4s;
+      pointer-events: none;
+    }
+
+    .card-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+
+    /* STATUS CARD */
+    .card-status {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .status-left { display: flex; align-items: center; gap: 16px; }
+
+    .status-orb {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      flex-shrink: 0;
+      transition: background 0.4s, box-shadow 0.4s;
+    }
+
+    .status-orb.online  { background: var(--accent-dim); box-shadow: var(--glow-green); }
+    .status-orb.offline { background: var(--red-dim);    box-shadow: var(--glow-red); }
+    .status-orb.connecting { background: var(--yellow-dim); box-shadow: 0 0 20px rgba(245,158,11,0.25); animation: pulse 1.4s ease-in-out infinite; }
+    .status-orb.reconnecting { background: var(--blue-dim); box-shadow: 0 0 20px rgba(59,130,246,0.25); animation: pulse 1s ease-in-out infinite; }
+    .status-orb.disabled { background: rgba(100,116,139,0.12); box-shadow: none; }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.08); opacity: 0.8; }
+    }
+
+    .status-info h2 {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      transition: color 0.3s;
+    }
+
+    .status-info h2.online  { color: var(--accent); }
+    .status-info h2.offline { color: var(--red); }
+    .status-info h2.connecting, .status-info h2.reconnecting { color: var(--yellow); }
+    .status-info h2.disabled { color: var(--text-muted); }
+
+    .status-info p {
+      font-size: 13px;
+      color: var(--text-dim);
+      margin-top: 3px;
+    }
+
+    /* TOGGLE BUTTON */
+    .btn-toggle {
+      padding: 12px 28px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s;
+      letter-spacing: 0.01em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .btn-toggle.on {
+      background: var(--red-dim);
+      color: var(--red);
+      border: 1px solid rgba(239,68,68,0.3);
+    }
+    .btn-toggle.on:hover {
+      background: rgba(239,68,68,0.2);
+      box-shadow: var(--glow-red);
+      transform: translateY(-1px);
+    }
+
+    .btn-toggle.off {
+      background: var(--accent-dim);
+      color: var(--accent);
+      border: 1px solid rgba(34,197,94,0.3);
+    }
+    .btn-toggle.off:hover {
+      background: rgba(34,197,94,0.2);
+      box-shadow: var(--glow-green);
+      transform: translateY(-1px);
+    }
+
+    .btn-toggle:active { transform: translateY(0); }
+    .btn-toggle:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; box-shadow: none !important; }
+
+    /* POSITION CARD */
+    .position-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .axis {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 10px;
+      text-align: center;
+    }
+
+    .axis-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    .axis-label.x { color: #f87171; }
+    .axis-label.y { color: #86efac; }
+    .axis-label.z { color: #60a5fa; }
+
+    .axis-val {
+      font-size: 17px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: var(--text);
+    }
+
+    .axis-val.null { color: var(--text-muted); font-size: 13px; font-weight: 400; }
+
+    /* ACTION CARD */
+    .action-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 6px;
+    }
+
+    .action-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      flex-shrink: 0;
+      animation: blink 1.6s ease-in-out infinite;
+    }
+
+    .action-dot.inactive { background: var(--text-muted); animation: none; }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.2; }
+    }
+
+    #action-text {
+      font-size: 16px;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    /* SERVER CARD */
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 9px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+
+    .info-row:last-child { border-bottom: none; }
+
+    .info-key { color: var(--text-muted); }
+    .info-val { color: var(--text); font-weight: 500; font-variant-numeric: tabular-nums; }
+
+    /* UPTIME CARD */
+    .uptime-display {
+      font-size: 36px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -1px;
+      color: var(--accent);
+      margin-top: 6px;
+    }
+
+    .uptime-display.inactive { color: var(--text-muted); font-size: 16px; font-weight: 400; letter-spacing: 0; }
+
+    /* LOG CARD */
+    .card-log {
+      grid-column: 1 / -1;
+    }
+
+    .log-box {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-top: 8px;
+      height: 130px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column-reverse;
+      gap: 4px;
+    }
+
+    .log-box::-webkit-scrollbar { width: 4px; }
+    .log-box::-webkit-scrollbar-track { background: transparent; }
+    .log-box::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    .log-entry {
+      font-size: 12px;
+      font-family: 'Menlo', 'Monaco', 'Consolas', monospace;
+      color: var(--text-dim);
+      line-height: 1.5;
+      display: flex;
+      gap: 8px;
+    }
+
+    .log-time { color: var(--text-muted); flex-shrink: 0; }
+    .log-entry.ev-online .log-msg { color: var(--accent); }
+    .log-entry.ev-offline .log-msg { color: var(--red); }
+    .log-entry.ev-warn .log-msg { color: var(--yellow); }
+    .log-entry.ev-info .log-msg { color: var(--blue); }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 9px;
+      border-radius: 99px;
+      margin-left: 10px;
+    }
+
+    .badge.online  { background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(34,197,94,0.25); }
+    .badge.offline { background: var(--red-dim);    color: var(--red);    border: 1px solid rgba(239,68,68,0.25); }
+    .badge.connecting { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(245,158,11,0.25); }
+    .badge.disabled { background: rgba(100,116,139,0.12); color: var(--text-muted); border: 1px solid rgba(100,116,139,0.2); }
+
+    .dot-live {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: currentColor;
+      animation: blink 1.2s ease-in-out infinite;
+    }
+
+    footer {
+      margin-top: 36px;
+      font-size: 12px;
+      color: var(--text-muted);
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">⛏️</div>
+  <div>
+    <h1>AFK Bot Dashboard</h1>
+    <span id="header-sub">Connecting...</span>
+  </div>
+</header>
+
+<div class="grid">
+
+  <!-- STATUS -->
+  <div class="card card-status">
+    <div class="status-left">
+      <div class="status-orb connecting" id="status-orb">🤖</div>
+      <div class="status-info">
+        <h2 id="status-title" class="connecting">Connecting</h2>
+        <p id="status-sub">Waiting for server...</p>
+      </div>
+    </div>
+    <button class="btn-toggle on" id="toggle-btn" onclick="toggleBot()">
+      <span id="toggle-icon">⏹</span>
+      <span id="toggle-label">Stop Bot</span>
+    </button>
+  </div>
+
+  <!-- POSITION -->
+  <div class="card">
+    <div class="card-label">📍 Position</div>
+    <div class="position-grid">
+      <div class="axis">
+        <div class="axis-label x">X</div>
+        <div class="axis-val" id="pos-x">—</div>
+      </div>
+      <div class="axis">
+        <div class="axis-label y">Y</div>
+        <div class="axis-val" id="pos-y">—</div>
+      </div>
+      <div class="axis">
+        <div class="axis-label z">Z</div>
+        <div class="axis-val" id="pos-z">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CURRENT ACTION -->
+  <div class="card">
+    <div class="card-label">⚡ Current Action</div>
+    <div class="action-row">
+      <div class="action-dot inactive" id="action-dot"></div>
+      <div id="action-text">Waiting...</div>
+    </div>
+  </div>
+
+  <!-- SERVER INFO -->
+  <div class="card">
+    <div class="card-label">🌐 Server Info</div>
+    <div class="info-row">
+      <span class="info-key">Host</span>
+      <span class="info-val" id="info-host">—</span>
+    </div>
+    <div class="info-row">
+      <span class="info-key">Username</span>
+      <span class="info-val" id="info-user">—</span>
+    </div>
+    <div class="info-row">
+      <span class="info-key">Auto-Relogin</span>
+      <span class="info-val" id="info-relogin">—</span>
+    </div>
+  </div>
+
+  <!-- UPTIME -->
+  <div class="card">
+    <div class="card-label">⏱ Session Uptime</div>
+    <div class="uptime-display inactive" id="uptime-display">Offline</div>
+  </div>
+
+  <!-- LOG -->
+  <div class="card card-log">
+    <div class="card-label">📋 Event Log</div>
+    <div class="log-box" id="log-box"></div>
+  </div>
+
+</div>
+
+<footer>Minecraft AFK Bot &nbsp;·&nbsp; Real-time dashboard</footer>
+
+<script>
+  const socket = io();
+  let uptimeSeconds = null;
+  let uptimeInterval = null;
+  let lastStatus = null;
+
+  function fmt(n) {
+    return n !== null && n !== undefined ? String(n) : '—';
+  }
+
+  function fmtUptime(s) {
+    if (s === null) return null;
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    return [h, m, sec].map(v => String(v).padStart(2, '0')).join(':');
+  }
+
+  function now() {
+    return new Date().toLocaleTimeString('en-US', { hour12: false });
+  }
+
+  function addLog(msg, type = 'info') {
+    const box = document.getElementById('log-box');
+    const el = document.createElement('div');
+    el.className = `log-entry ev-${type}`;
+    el.innerHTML = `<span class="log-time">${now()}</span><span class="log-msg">${msg}</span>`;
+    box.prepend(el);
+    while (box.children.length > 60) box.removeChild(box.lastChild);
+  }
+
+  function updateUptime(uptimeSec) {
+    clearInterval(uptimeInterval);
+    const el = document.getElementById('uptime-display');
+    if (uptimeSec === null || uptimeSec === undefined) {
+      el.textContent = 'Offline';
+      el.className = 'uptime-display inactive';
+      uptimeSeconds = null;
+      return;
+    }
+    uptimeSeconds = uptimeSec;
+    el.className = 'uptime-display';
+    el.textContent = fmtUptime(uptimeSeconds);
+    uptimeInterval = setInterval(() => {
+      uptimeSeconds++;
+      el.textContent = fmtUptime(uptimeSeconds);
+    }, 1000);
+  }
+
+  const STATUS_MAP = {
+    online:       { label: 'Online',       emoji: '🟢', cls: 'online',       orb: '🤖', sub: 'Bot is active on the server' },
+    offline:      { label: 'Offline',      emoji: '🔴', cls: 'offline',      orb: '💤', sub: 'Server unreachable. Retrying...' },
+    connecting:   { label: 'Connecting',   emoji: '🟡', cls: 'connecting',   orb: '🤖', sub: 'Trying to reach the server...' },
+    reconnecting: { label: 'Reconnecting', emoji: '🔵', cls: 'reconnecting', orb: '🤖', sub: 'Reconnecting in a moment...' },
+    disabled:     { label: 'Disabled',     emoji: '⚫', cls: 'disabled',     orb: '🚫', sub: 'Bot is stopped by user' },
+  };
+
+  socket.on('state', (data) => {
+    const s = STATUS_MAP[data.status] || STATUS_MAP.offline;
+
+    // Status orb
+    const orb = document.getElementById('status-orb');
+    orb.className = `status-orb ${s.cls}`;
+    orb.textContent = s.orb;
+
+    // Title
+    const title = document.getElementById('status-title');
+    title.className = s.cls;
+    title.textContent = s.label;
+
+    // Sub
+    document.getElementById('status-sub').textContent = data.action && data.status === 'online'
+      ? `Currently: ${data.action}`
+      : s.sub;
+
+    // Header sub
+    document.getElementById('header-sub').textContent = `${data.server || '—'} · ${data.username || '—'}`;
+
+    // Position
+    if (data.position) {
+      document.getElementById('pos-x').textContent = data.position.x;
+      document.getElementById('pos-y').textContent = data.position.y;
+      document.getElementById('pos-z').textContent = data.position.z;
+      ['pos-x','pos-y','pos-z'].forEach(id => {
+        document.getElementById(id).className = 'axis-val';
+      });
+    } else {
+      ['pos-x','pos-y','pos-z'].forEach(id => {
+        document.getElementById(id).textContent = '—';
+        document.getElementById(id).className = 'axis-val null';
+      });
+    }
+
+    // Action
+    const actionDot = document.getElementById('action-dot');
+    const actionText = document.getElementById('action-text');
+    if (data.status === 'online') {
+      actionDot.className = 'action-dot';
+      actionText.textContent = data.action || 'Idle';
+    } else {
+      actionDot.className = 'action-dot inactive';
+      actionText.textContent = s.label;
+    }
+
+    // Server info
+    document.getElementById('info-host').textContent = data.server || '—';
+    document.getElementById('info-user').textContent = data.username || '—';
+    document.getElementById('info-relogin').textContent = data.enabled ? '✅ Enabled' : '❌ Disabled';
+
+    // Toggle button
+    const btn = document.getElementById('toggle-btn');
+    const icon = document.getElementById('toggle-icon');
+    const label = document.getElementById('toggle-label');
+    if (data.enabled) {
+      btn.className = 'btn-toggle on';
+      icon.textContent = '⏹';
+      label.textContent = 'Stop Bot';
+    } else {
+      btn.className = 'btn-toggle off';
+      icon.textContent = '▶';
+      label.textContent = 'Start Bot';
+    }
+
+    // Uptime
+    updateUptime(data.status === 'online' ? data.uptime : null);
+
+    // Log events on status change
+    if (data.status !== lastStatus) {
+      if (data.status === 'online') addLog(`✅ Bot spawned on ${data.server}`, 'online');
+      else if (data.status === 'offline') addLog(`⛔ Disconnected from ${data.server}`, 'offline');
+      else if (data.status === 'reconnecting') addLog(`🔄 Reconnecting...`, 'warn');
+      else if (data.status === 'connecting') addLog(`🔌 Connecting to ${data.server}`, 'info');
+      else if (data.status === 'disabled') addLog(`⏹ Bot stopped by user`, 'warn');
+      lastStatus = data.status;
+    }
+  });
+
+  socket.on('connect', () => addLog('🌐 Connected to dashboard', 'info'));
+  socket.on('disconnect', () => addLog('⚠️ Dashboard disconnected', 'offline'));
+
+  function toggleBot() {
+    const btn = document.getElementById('toggle-btn');
+    btn.disabled = true;
+    setTimeout(() => btn.disabled = false, 2000);
+    socket.emit('toggle');
+  }
+</script>
+</body>
+  </html>
