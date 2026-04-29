@@ -2,10 +2,10 @@
   "__comment_server__": "=== SERVER CONNECTION SETTINGS ===",
   
   "_comment_host": "Your server's IP address or domain (Example: 'server.aternos.me')",
-  "serverHost": "uieumieu1.aternos.me",
+  "serverHost": "bilfenisksmp.falixsrv.me",
   
   "_comment_port": "Server port. Leave it as 25565 if you don't know (Java default).",
-  "serverPort": 54308,
+  "serverPort": 23938,
 
   "_comment_version": "Minecraft server version. Example: '1.20.1', '1.19.4', '1.18.2'.",
   "serverVersion": "1.21.11",
